@@ -1,0 +1,79 @@
+New Loan Application or Credit_Scholar
+=========================================
+TRUNCATE TABLE `tbl_temp_applicationform`;
+TRUNCATE TABLE `tbl_amortization`;
+TRUNCATE TABLE `tbl_customar_applicationform`;
+TRUNCATE TABLE `tbl_customers`;
+TRUNCATE TABLE `tbl_customer_personalinformation`;
+TRUNCATE TABLE `tbl_customer_additionalinformation`;
+TRUNCATE TABLE `tbl_customar_employment_information`;
+TRUNCATE TABLE `tbl_customer_address`;
+TRUNCATE TABLE `tbl_customar_bank_account`;
+TRUNCATE TABLE `tbl_customar_other_information`;
+TRUNCATE TABLE `tbl_tracking_timeline`;
+TRUNCATE TABLE `tbl_system_docs`;
+TRUNCATE TABLE `tbl_riskanalysis`;
+TRUNCATE TABLE `tbl_riskanalysis_current_monthly_credit`;
+TRUNCATE TABLE `tbl_riskanalysis_monthly_payment_new_loan`;
+TRUNCATE TABLE `tbl_riskanalysis_financial_situation`;
+TRUNCATE TABLE `tbl_interaction_history`;
+TRUNCATE TABLE `tbl_branmanager_approbation`;
+
+
+TRUNCATE TABLE
+    `tbl_temp_applicationform`;
+TRUNCATE TABLE
+    `tbl_amortization`;
+TRUNCATE TABLE
+    `tbl_customar_applicationform`;
+TRUNCATE TABLE
+    `tbl_customers`;
+TRUNCATE TABLE
+    `tbl_customer_personalinformation`;
+TRUNCATE TABLE
+    `tbl_customer_additionalinformation`;
+TRUNCATE TABLE
+    `tbl_customar_employment_information`;
+TRUNCATE TABLE
+    `tbl_customer_address`;
+TRUNCATE TABLE
+    `tbl_customar_bank_account`;
+TRUNCATE TABLE
+    `tbl_customar_other_information`;
+TRUNCATE TABLE
+    `tbl_tracking_timeline`;
+TRUNCATE TABLE
+    `tbl_system_docs`;
+TRUNCATE TABLE
+    `tbl_riskanalysis`;
+TRUNCATE TABLE
+    `tbl_riskanalysis_current_monthly_credit`;
+TRUNCATE TABLE
+    `tbl_riskanalysis_monthly_payment_new_loan`;
+TRUNCATE TABLE
+    `tbl_riskanalysis_financial_situation`;
+TRUNCATE TABLE
+    `tbl_interaction_history`;
+TRUNCATE TABLE
+    `tbl_branmanager_approbation`;
+
+
+Folder=====================
+./assets/consumer_loan/check-list-customer/
+./assets/consumer_loan/system-docs/
+./assets/riskanalysis/
+
+TRUNCATE TABLE
+    `tbl_customers`;
+TRUNCATE TABLE
+    `tbl_customer_personalinformation`;
+TRUNCATE TABLE
+    `tbl_customer_additionalinformation`;
+TRUNCATE TABLE
+    `tbl_customar_employment_information`;
+TRUNCATE TABLE
+    `tbl_customer_address`;
+TRUNCATE TABLE
+    `tbl_customar_bank_account`;
+TRUNCATE TABLE
+    `tbl_customar_other_information`;

@@ -1,0 +1,132 @@
+=======Account manager========
+account@dcp.com
+pass: 123456
+========Branch Manager========
+branch@dcp.com
+pass: 123456
+
+=====Risk Analyst====
+analyst@dcp.com
+pass: 123456
+=====================
+
+====Head DCPR======
+dcrpmanager@dcp.com
+pass: 123456
+===================
+
+
+=======Director Engagements==========
+directore@dcp.com
+pass: 123456
+cic@dcp.com
+pass:123456
+=======CAD Agent===========
+agentcad@dcp.com
+pass: 123456
+=======CAD===========
+creditadministrator@dcp.com
+pass: 123456
+OR
+cadhead@dcp.com
+pass:123456
+
+
+
+
+geoi winscp
+ec2-user@13.58.197.98    
+GEOI PHPMYADMIN
+================
+http://www.geoidentify.com/phpmyadmin/
+Username: root
+Password: geoidb@321
+
+login web
+demo@geoidentify.com
+pass: Dev2018
+KERNEL32.DDL
+
+
+http://ckinformatics.org/cpanel
+vwrti827rksk
+#NMPpz,43u
+                                                                            
+
+=================================
+http://ckinformatics.org/dcp/
+Decovert Loan Approval process .
+process is Account manager to  Branch Manager to Director Engagements to CAD Agent to CAD
+=======Account manager========
+account@dcp.com
+pass: 123456
+========Branch Manager========
+branch@dcp.com
+pass: 123456
+=======Director Engagements==========
+directore@dcp.com
+pass: 123456
+cic@dcp.com
+pass:123456
+=======CAD Agent===========
+headcad@dcp.com
+pass: 123456
+=======CAD===========
+creditadministrator@dcp.com
+pass: 123456
+
+Cpanel Details
+ckinfo go daddy:
+133375387
+Ckinfo@456
+FTP ACCOUNT
+ftp.ckinformatics.org
+vwrti827rksk
+#NMPpz,43u
+==================
+cpanel Details
+ckinformatics.org/cpanel
+vwrti827rksk
+pass: #NMPpz,43u
+
+
+==============dcpilote.com===============
+https://portal.hostgator.com/login
+malick.seye@gmail.com
+RcN#yc9qG4$oqD/3
+
+
+    HostGator Billing Portal: https://portal.hostgator.com
+    Login name / email address: malick.seye@gmail.com
+    Password: RcN#yc9qG4$oqD/3
+
+https://dcpilote.com:2096/
+email id:info@dcpilote.com
+pass:dcpilote123
+or
+support@dcpilote.com
+pass:dcpilote123
+
+Power Panel (VZ):   https://192.232.252.88:4643/vz/cp
+Your Domain:     dcp.dcpilote.com
+Your Username:  root
+Your Password:  nhogrlZ0X6CO
+Your site's IP address:
+192.232.252.88
+
+
+
+dcpilote.com
+user: dcpilote
+pass:F8v4c)+=I;O&
+
+malick.seye@gmail.com
+
+cpanel
+https://192.232.252.88:2083/cpsess7953545640/frontend/paper_lantern/index.html?login=1&post_login=8422731071769
+or
+https://192.232.252.88:2083/
+===================================
+9748011295
+
+prolay@ckinformatics.org

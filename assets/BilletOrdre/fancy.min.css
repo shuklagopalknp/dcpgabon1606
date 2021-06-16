@@ -1,0 +1,71 @@
+/*! 
+ * Fancy styles
+ * Copyright 2012,2013 Lu Wang <coolwanglu@gmail.com> 
+ * https://github.com/coolwanglu/pdf2htmlEX/blob/master/share/LICENSE
+ */
+
+@keyframes fadein {
+    from {
+        opacity: 0
+    }
+    to {
+        opacity: 1
+    }
+}
+
+@-webkit-keyframes fadein {
+    from {
+        opacity: 0
+    }
+    to {
+        opacity: 1
+    }
+}
+
+@keyframes swing {
+    0 {
+        transform: rotate(0)
+    }
+    10% {
+        transform: rotate(0)
+    }
+    90% {
+        transform: rotate(720deg)
+    }
+    100% {
+        transform: rotate(720deg)
+    }
+}
+
+@-webkit-keyframes swing {
+    0 {
+        -webkit-transform: rotate(0)
+    }
+    10% {
+        -webkit-transform: rotate(0)
+    }
+    90% {
+        -webkit-transform: rotate(720deg)
+    }
+    100% {
+        -webkit-transform: rotate(720deg)
+    }
+}
+
+@media screen {
+   
+    
+   .pf {
+        margin: 3px auto;       
+        border-collapse: separate
+    }
+    .pc.opened {
+        -webkit-animation: fadein 100ms;
+        animation: fadein 100ms
+    }
+    .loading-indicator.active {
+        -webkit-animation: swing 1.5s ease-in-out .01s infinite alternate none;
+        animation: swing 1.5s ease-in-out .01s infinite alternate none
+    }
+   
+}

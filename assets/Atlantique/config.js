@@ -1,0 +1,1 @@
+IDRViewer.config = {"pagecount":1,"title":"Atlantique Prêt Scolaire - Formulaire en français","author":"lionel.tong","fileName":"Atlantique_Pr_t_Scolaire_-_Formulaire_en_fran_ais.pdf","bounds":[[909,1286]],"bookmarks":[],"thumbnailType":"jpg","pageType":"html","pageLabels":[]};

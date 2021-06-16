@@ -1,0 +1,1 @@
+Numéro Prêt Digital Crédit;Référence de l'Emprunteur;Catégorie de Prêts;Nominal du Prêt;Durée;Date d'Accord;Date de Réalisation;Date Première Échéance;Date Naissance Emprunteur;Numéro Compte Emprunteur;Numéro Compte Destinataire;Taux Intérêt Fixe;Périodicité des Amortissements;Barême de l'Assurance;Code Décisionnaire;Montant Garanti;Référence de la Garantie

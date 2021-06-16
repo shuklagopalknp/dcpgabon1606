@@ -1,0 +1,1240 @@
+<?php 
+// New Update : 16-11-2020
+
+// Usage : This controller maintains all reporting in the application
+
+defined('BASEPATH') OR exit('No direct script access allowed');
+class Reports extends Admin_Controller 
+{
+	public function __construct()
+	{
+		parent::__construct();
+		$this->not_logged_in();
+		$this->data['title'] = 'Gabon | Reports';	
+		
+		$this->load->helper('lang_translate');    	
+    	$this->load->model('Common_model');
+    	$this->load->helper('timeAgo');   	
+	}
+
+	
+	function getDatesFromRange($start, $end, $format = 'Y-m-d') { 
+      
+	    // Declare an empty array 
+	    $array = array(); 
+	      
+	    // Variable that store the date interval 
+	    // of period 1 day 
+	    $interval = new DateInterval('P1D'); 
+	  
+	    $realEnd = new DateTime($end); 
+	    $realEnd->add($interval); 
+	  
+	    $period = new DatePeriod(new DateTime($start), $interval, $realEnd); 
+	  
+	    // Use loop to store date into array 
+	    foreach($period as $date) {                  
+	        $array[] = $date->format($format);  
+	    } 
+	  
+	    // Return the array elements 
+	    return $array; 
+	} 
+
+	public function weekly_report(){
+
+		$this->data['page'] = 'Rapport Hebdomadaire';
+
+		$this->data['record']=$this->Common_model->get_admin_details();
+		$user_id = $this->session->userdata('id');
+		$is_admin = ($user_id == 1) ? true :false;
+		$this->data['is_admin'] = $is_admin;
+
+		if($this->session->userdata('role') == "2" || $this->session->userdata('role') == "3")
+		{
+			$u_where  =  array('branch_id'=> $this->data['record'][0]->branch_id,'is_admin' => '2');
+		}
+		else
+		{
+
+			if($this->input->post('branch_name'))
+			{
+				$u_where  =  array('is_admin' => '2','branch_id' => $this->input->post('branch_name'));
+			}
+			else
+			{
+				$u_where  =  array('is_admin' => '2');
+			}
+			
+		}
+		
+		$users =  $this->Common_model->getAllRecords('tbl_user',$u_where);
+
+
+		// date range
+
+		if($this->input->post('daterange'))
+		{
+			$date_range  = explode('-',$this->input->post('daterange'));
+
+			$this_week_sd = date("Y-m-d",strtotime($date_range[0]));
+			$this_week_ed = date("Y-m-d",strtotime($date_range[1]));
+		}
+		else{
+
+			$monday = strtotime("last monday");
+			$monday = date('w', $monday)==date('w') ? $monday+7*86400 : $monday;
+
+			$sunday = strtotime(date("Y-m-d",$monday)." +4 days");
+
+			$this_week_sd = date("Y-m-d",$monday);
+			$this_week_ed = date("Y-m-d",$sunday);
+		}
+
+		$this->data['formatted_date'] =  date("Y/m/d",strtotime($this_week_sd))." - ".date("Y/m/d",strtotime($this_week_ed));
+		$date_array = $this->getDatesFromRange($this_week_sd,$this_week_ed);
+
+		$this->data['date_title'] = "Rapport Hebdomadaire du ".date('d-M-Y', strtotime($this_week_sd))." au ".date('d-M-Y', strtotime($this_week_ed));
+
+		$this->data['date_arr'] = $date_array ;
+
+		$b_where  =  array('deleted' => '0');
+		$this->data['all_branch'] =  $this->Common_model->getAllRecords('tbl_branch',$b_where);
+
+		//$date_array = $this->getDatesFromRange('2020-10-08','2020-11-08');
+		// echo '<pre>';
+		// print_r($date_array);
+
+
+		//$current_dayname = date("l"); // return sunday monday tuesday etc.
+		             
+		//echo $date = date("Y-m-d",strtotime('monday this week')).'to'.date("Y-m-d",strtotime("$current_dayname this week")); 
+
+		$details = array();
+		$total =  array();
+		foreach($users as $key=>$rec)
+		{
+			$details[$key]['name'] = $rec['first_name'].' '.$rec['last_name'];
+
+			$branch_where  =  array('bid' => $rec['branch_id']);
+		    $branch_data  =  $this->Common_model->getRecord('tbl_branch','',$branch_where);
+            $details[$key]['department'] = $rec['department'];
+			$details[$key]['branch'] = $branch_data['branch_name'];
+			$details[$key]['target_loan_count'] = $rec['target_loan_count'];
+			$details[$key]['target_loan_amount'] = $rec['target_loan_amount'];
+
+			$record  =  array();
+
+
+			foreach($date_array as $key1=>$d_arr){
+
+				// Credit Conso
+				$conso_loans = $this->db->query("SELECT loan_id,loan_id_temp FROM tbl_credit_conso_applicationloan WHERE (created_at BETWEEN '".$d_arr." 00:00:00' AND '".$d_arr." 23:59:59') AND user_id = '".$rec['id']."' AND branch_id = '".$rec['branch_id']."' AND final_status='Disbursement'")->result_array();
+
+				// echo '<pre>';
+				// print_r($conso_loans);
+
+				$sum4 = 0;$count4 = 0;
+				foreach($conso_loans as $cl)
+				{
+					$consoloan_amount = $this->db->get_where('tbl_temp_consumer_applicationform',array('aid' => $cl['loan_id_temp']))->row_array();
+
+					$sum4 += $consoloan_amount['loan_amt'];
+					$count4++;
+				}
+
+				$count_consoloan = $count4; 
+				$sum_consoloan = $sum4;
+
+				// Credit Scolaire
+				$creditsc_loans = $this->db->query("SELECT loan_id,loan_id_temp FROM tbl_credit_scolair_applicationloan WHERE (created_at BETWEEN '".$d_arr." 00:00:00' AND '".$d_arr." 23:59:59') AND user_id = '".$rec['id']."' AND branch_id = '".$rec['branch_id']."' AND final_status='Disbursement'")->result_array();
+
+				$sum5 = 0; $count5 = 0;
+				foreach($creditsc_loans as $cl1)
+				{
+					$creditloan_amount = $this->db->get_where('tbl_temp_consumer_applicationform',array('aid' => $cl1['loan_id_temp']))->row_array();
+
+					$sum5 += $creditloan_amount['loan_amt'];
+					$count5++;
+				}
+
+				$count_creditloan = $count5; 
+				$sum_creditloan = $sum5;
+
+				// Credit Confort
+				$creditconfort_loans = $this->db->query("SELECT loan_id,loan_id_temp FROM tbl_credit_confort_applicationloan WHERE (created_at BETWEEN '".$d_arr." 00:00:00' AND '".$d_arr." 23:59:59') AND user_id = '".$rec['id']."' AND branch_id = '".$rec['branch_id']."' AND final_status='Disbursement'")->result_array();
+
+				//echo $this->db->last_query();
+
+				$sum6 = 0; $count6= 0;
+				foreach($creditconfort_loans as $cl2)
+				{
+					$creditloanc_amount = $this->db->get_where('tbl_temp_consumer_applicationform',array('aid' => $cl2['loan_id_temp']))->row_array();
+					//echo $this->db->last_query();
+
+					$sum6 += $creditloanc_amount['loan_amt'];
+					$count6++;
+				}
+
+				 $count_confortloan = $count6; 
+				 $sum_confortloan = $sum6;
+
+
+				$record[$d_arr]['number'] = $count_consoloan + $count_creditloan + $count_confortloan;
+
+				$record[$d_arr]['sum'] = $sum_consoloan + $sum_creditloan + $sum_confortloan;
+
+				if($key == 0)
+				{
+					$total= $record;
+				}
+				else{
+
+					if (array_key_exists($d_arr,$total))
+					{
+					    $total[$d_arr]['number'] =  $total[$d_arr]['number'] + $record[$d_arr]['number'];
+					    $total[$d_arr]['sum'] =  $total[$d_arr]['sum'] + $record[$d_arr]['sum'];
+
+					}
+				}
+
+			}
+
+			
+
+			$details[$key]['data'] = $record;
+			
+		}
+
+		$this->data['details'] =  $details;
+		$this->data['total'] =  $total;
+
+		$this->data['comm_data'] =  $this->Common_model->getRecord('tbl_commission');
+
+		$this->render_template2('reports/weekly_report', $this->data);
+	}
+
+
+	public function all_report()
+	{
+		$role_id =  $this->session->userdata('role');
+
+		$this->data['page'] = 'All Report';
+		$this->data['record']=$this->Common_model->get_admin_details();
+		$user_id = $this->session->userdata('id');
+		$user_data =  $this->Common_model->get_user_details($user_id);
+		$is_admin = ($user_id == 1) ? true :false;
+		$this->data['is_admin'] = $is_admin;
+
+		$user_app =  array();
+
+		// Filter post
+		$date= date('d-m-Y');
+		$date2= date('d-m-Y', strtotime('-1 day', strtotime($date)));
+		$start_date  =  ($this->input->post('start_date')) ? ($this->input->post('start_date')): ($date2);
+		$end_date = ($this->input->post('end_date')) ? ($this->input->post('end_date')): ($date);
+		$branch = $this->input->post('agence_id');
+		$account_manager = $this->input->post('account_manager_id');
+        
+        
+
+		
+
+		$this->db->order_by('app_id','desc');
+		$this->db->group_by('loan_id,loan_type');
+		$applications  =  $this->db->get_where('tbl_all_applications',array('status' => "1"))->result_array();
+		
+
+		foreach($applications  as $app)
+		{
+				if($app['loan_type'] == "credit_conso")
+				{
+					$table_name=  'tbl_credit_conso_applicationloan  as g';
+				}
+				else if($app['loan_type'] == "credit_confort")
+				{
+					$table_name= 'tbl_credit_confort_applicationloan  as g';
+				}else{
+				    $table_name= 'tbl_credit_scolair_applicationloan  as g';
+				    $this->db->select('g.department');
+				}
+			
+				$this->db->select('g.loan_id,g.user_id created_by,g.application_no,g.sub_product,g.customer_data,g.created_at,g.modified_at,b.branch_name,g.customer_type,g.cancelled_by,g.final_status,g.final_disburse_date,g.disbursed_by,loan.loan_amt,loan.loan_interest,loan.loan_term,loan.loan_schedule,loan.loan_fee,loan.loan_tax,loan.teg_rate,loan.wear_rate,loan.created,loan.loan_guarantee,loan.annual_teg,loan.periodic_teg,u.user_name,u.exploitent');
+				
+				$this->db->from($table_name);
+				
+			
+				$this->db->join('tbl_branch as b','b.bid = g.branch_id','inner');
+				$this->db->join('tbl_user as u','u.id = g.user_id','left');
+				$this->db->join('tbl_temp_consumer_applicationform as loan','loan.aid = g.loan_id_temp','left');
+
+				if($role_id=='2'){
+					$this->db->where('g.user_id',$user_id);
+					$this->db->where('g.branch_id',$user_data['branch_id']);
+					$this->db->where('g.loan_id',$app['loan_id']);
+				}
+				if($role_id == '3')
+				{
+				    $this->db->where('g.branch_id',$user_data['branch_id']);
+				    $this->db->where('g.loan_id',$app['loan_id']);
+				}
+				else
+				{
+					 $this->db->where('g.loan_id',$app['loan_id']);
+				}
+
+				if($start_date != "" && $end_date != "")
+				{
+					$s_date  = date('Y-m-d',strtotime($start_date))." 00:00:00"; 
+					$e_date  = date('Y-m-d',strtotime($end_date))." 23:59:59"; 
+					$between_where  =  "(g.created_at BETWEEN '".$s_date."' AND '".$e_date."')";
+					$this->db->where($between_where);
+				}
+
+				if($branch != "")
+				{
+					$this->db->where('g.branch_id',$branch);
+				}
+
+				if($account_manager !="")
+				{
+					$this->db->where('g.user_id',$account_manager);
+				}
+				
+				//$this->db->where('g.deleted','0');
+    	
+				$result =  $this->db->get()->row_array();
+
+				if(!empty($result))
+				{
+
+					if($app['loan_type'] == "credit_conso")
+					{
+						$result['loan_type'] = "Fête à la Carte";
+					}
+					else if($app['loan_type'] == "credit_confort")
+					{
+						$result['loan_type'] = "Credit Confort";
+					}else{
+					    $result['loan_type'] = "Conges à la Carte";
+					}
+
+					
+
+
+					// Account Manager Details
+					$acc_where = array('status' =>"1",'assigned_roles' => "2",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+				
+					$acc_data =  $this->Common_model->getRecord('tbl_all_applications','',$acc_where );
+						
+					$user_where= array('id' =>$acc_data['user_id']);
+					$acc_data2 =  $this->Common_model->getRecord('tbl_user','',$user_where );
+					
+					$cancel_where= array('id' =>$result['cancelled_by']);
+					$cancelled_by =  $this->Common_model->getRecord('tbl_user','',$cancel_where );
+				
+			
+                    $result['acc_mgr_id'] = $acc_data2['user_name'];
+                    $result['acc_mgr_status_raw'] = $result['final_status'];
+                    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                        $result['acc_mgr_status'] = '<span class="label label-danger">Annulé</span>';
+                    }
+					else if($acc_data['approval_status'] == "Avis Favorable"){
+				    	$result['acc_mgr_status'] = '<span class="label label-info">Avis Favorable</span>';
+				    	
+				    }
+				    else if($acc_data['approval_status'] == "Process")
+				    {
+				    	$result['acc_mgr_status'] = '<span class="label label-primary">Traitement en Cours</span>';
+				    	
+				    }
+				    else if($acc_data['approval_status'] == "Avis défavorable")
+					{
+						$result['acc_mgr_status'] = '<span class="label label-danger">Avis Défavorable</span>';
+						
+					}
+					else if($acc_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['acc_mgr_status'] = '<span class="label label-danger">Demande de Retraitement</span>';
+						
+					}
+				
+					else {
+						$result['acc_mgr_status'] = '<span class="label label-primary">Initiation en Cours</span>';
+						
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$acc_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $acc_data['user_id'],'loan_type' => $app['loan_type']))->row_array();
+
+					if($acc_commentdata['comment_date'])
+					$result['acc_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($acc_commentdata['comment_date'])) ;
+					else
+					$result['acc_mgr_commentdate'] = "" ;
+					
+					
+
+					// Branch Manager Details
+					$b_where = array('status' =>"1",'assigned_roles' => "3",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$b_data =  $this->Common_model->getRecord('tbl_all_applications','',$b_where );
+				// 	echo $this->db->last_query();
+				// 	    die;
+					$user_where= array('id' =>$b_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+					
+                    $result['branch_mgr_id'] = $acc_data['user_name'];
+                    $result['branch_mgr_status_raw'] = $result['final_status'];
+                    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                       $result['branch_mgr_status'] = '<span class="label label-danger">Annulé</span>'; 
+                    }
+                    else if($result['final_status'] == "Abandonner"){
+                       $result['branch_mgr_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                    }
+                    else if($b_data['approval_status'] == "Avis Favorable"){
+				    	$result['branch_mgr_status'] = '<span class="label label-info">Avis Favorable</span>';
+				    }
+				    else if($b_data['approval_status'] == "Process")
+				    {
+				    	$result['branch_mgr_status'] = '<span class="label label-primary">Traitement en Cours</span>';
+				    }
+				    else if($b_data['approval_status'] == "Avis défavorable")
+					{
+						$result['branch_mgr_status'] = '<span class="label label-danger">Avis Défavorable</span>';
+					}
+					else if($b_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['branch_mgr_status'] = '<span class="label label-danger">Demande de Retraitement</span>';
+					}
+					else {
+						$result['branch_mgr_status'] = '<span class="label label-primary">Initiation en Cours</span>';
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$branch_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $b_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($branch_commentdata['comment_date'])
+					$result['branch_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($branch_commentdata['comment_date'])) ;
+					else
+					$result['branch_mgr_commentdate'] = "" ;
+					
+					// AR delegue Credit 1 
+					$ar_where = array('status' =>"1",'assigned_roles' => "6",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$ar_data =  $this->Common_model->getRecord('tbl_all_applications','',$ar_where );
+					
+					$user_where= array('id' =>$ar_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['ar_id'] = $acc_data['user_name'];
+                    $result['ar_status_raw'] = $result['final_status'];
+					if(!empty($ar_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['ar_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['ar_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						else if($ar_data['approval_status'] == "Avis Favorable"){
+					    	$result['ar_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($ar_data['approval_status'] == "Process")
+					    {
+					    	$result['ar_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($ar_data['approval_status'] == "Avis défavorable")
+						{
+							$result['ar_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($ar_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['ar_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($ar_data['approval_status'] == "Annuler")
+    					{
+    						$result['ar_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($ar_data['approval_status'] == "Abandonner")
+    					{
+    						$result['ar_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($ar_data['approval_status'] == "Disbursement")
+						{
+							$result['ar_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['ar_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['ar_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$ar_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $ar_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($ar_commentdata['comment_date'])
+					$result['ar_commentdate'] = date("d-m-Y H:i:s",strtotime($ar_commentdata['comment_date'])) ;
+					else
+					$result['ar_commentdate'] = "" ;
+					
+					
+					// SCO/DR - Délégué Crédit 2
+					$dr2_where = array('status' =>"1",'assigned_roles' => "14",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$dr2_data =  $this->Common_model->getRecord('tbl_all_applications','',$dr2_where );
+					
+					$user_where= array('id' =>$dr2_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['dr2_id'] = $acc_data['user_name'];
+                    $result['dr2_status_raw'] = $result['final_status'];
+					if(!empty($dr2_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['dr2_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['dr2_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						else if($dr2_data['approval_status'] == "Avis Favorable"){
+					    	$result['dr2_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($dr2_data['approval_status'] == "Process")
+					    {
+					    	$result['dr2_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($dr2_data['approval_status'] == "Avis défavorable")
+						{
+							$result['dr2_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($dr2_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['dr2_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($dr2_data['approval_status'] == "Annuler")
+    					{
+    						$result['dr2_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($dr2_data['approval_status'] == "Abandonner")
+    					{
+    						$result['dr2_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($dr2_data['approval_status'] == "Disbursement")
+						{
+							$result['dr2_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['dr2_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['dr2_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$dr2_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $dr2_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($dr2_commentdata['comment_date'])
+					$result['dr2_commentdate'] = date("d-m-Y H:i:s",strtotime($dr2_commentdata['comment_date'])) ;
+					else
+					$result['dr2_commentdate'] = "" ;
+					
+					
+
+
+					// Director engagement details
+					$de_where = array('status' =>"1",'assigned_roles' => "5",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$de_data =  $this->Common_model->getRecord('tbl_all_applications','',$de_where );
+                    
+                    $user_where= array('id' =>$de_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['dir_engagement_id'] = $acc_data['user_name'];
+                    $result['dr22_status_raw'] = $result['final_status'];
+					if(!empty($de_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['dr2_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['dr2_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						if($de_data['approval_status'] == "Avis Favorable"){
+					    	$result['dir_engagement_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($de_data['approval_status'] == "Process")
+					    {
+					    	$result['dir_engagement_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($de_data['approval_status'] == "Avis défavorable")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($de_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($de_data['approval_status'] == "Annuler")
+    					{
+    						$result['dir_engagement_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($de_data['approval_status'] == "Abandonner")
+    					{
+    						$result['dir_engagement_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($de_data['approval_status'] == "Disbursement")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['dir_engagement_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['dir_engagement_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$dire_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $de_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($dire_commentdata['comment_date'])
+					$result['dir_engage_commentdate'] = date("d-m-Y H:i:s",strtotime($dire_commentdata['comment_date'])) ;
+					else
+					$result['dir_engage_commentdate'] = "" ;
+					
+					
+					// Managing Director
+					$md_where = array('status' =>"1",'assigned_roles' => "21",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$md_data =  $this->Common_model->getRecord('tbl_all_applications','',$md_where );
+					
+					$user_where= array('id' =>$md_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['managing_dir_id'] = $acc_data['user_name'];
+                    $result['managing_dir_status_raw'] = $result['final_status'];
+					if(!empty($md_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['managing_dir_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['managing_dir_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						else if($md_data['approval_status'] == "Avis Favorable"){
+					    	$result['managing_dir_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($md_data['approval_status'] == "Process")
+					    {
+					    	$result['managing_dir_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($md_data['approval_status'] == "Avis défavorable")
+						{
+							$result['managing_dir_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($md_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['managing_dir_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($md_data['approval_status'] == "Annuler")
+    					{
+    						$result['managing_dir_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($md_data['approval_status'] == "Abandonner")
+    					{
+    						$result['managing_dir_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($md_data['approval_status'] == "Disbursement")
+						{
+							$result['managing_dir_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['managing_dir_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['managing_dir_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$md_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $md_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($md_commentdata['comment_date'])
+					$result['managing_dir_commentdate'] = date("d-m-Y H:i:s",strtotime($md_commentdata['comment_date'])) ;
+					else
+					$result['managing_dir_commentdate'] = "" ;
+					
+					// Deputy Managing Director
+					$dmd_where = array('status' =>"1",'assigned_roles' => "20",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$dmd_data =  $this->Common_model->getRecord('tbl_all_applications','',$dmd_where );
+					
+					$user_where= array('id' =>$dmd_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['deputy_manager_id'] = $acc_data['user_name'];
+                    $result['deputy_manager_status_raw'] = $result['final_status'];
+					if(!empty($dmd_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['deputy_manager_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['deputy_manager_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						else if($dmd_data['approval_status'] == "Avis Favorable"){
+					    	$result['deputy_manager_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($dmd_data['approval_status'] == "Process")
+					    {
+					    	$result['deputy_manager_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($dmd_data['approval_status'] == "Avis défavorable")
+						{
+							$result['deputy_manager_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($dmd_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['deputy_manager_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($dmd_data['approval_status'] == "Annuler")
+    					{
+    						$result['deputy_manager_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($dmd_data['approval_status'] == "Abandonner")
+    					{
+    						$result['deputy_manager_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($dmd_data['approval_status'] == "Disbursement")
+						{
+							$result['deputy_manager_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['deputy_manager_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['deputy_manager_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$dmd_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $dmd_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($dmd_commentdata['comment_date'])
+					$result['deputy_manager_commentdate'] = date("d-m-Y H:i:s",strtotime($dmd_commentdata['comment_date'])) ;
+					else
+					$result['deputy_manager_commentdate'] = "" ;
+					
+					
+					// Ctrl Engag
+					$ctrl_where = array('status' =>"1",'assigned_roles' => "27",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$ctrl_data =  $this->Common_model->getRecord('tbl_all_applications','',$ctrl_where );
+					
+					$user_where= array('id' =>$ctrl_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['ctrl_id'] = $acc_data['user_name'];
+                    $result['ctrl_status_raw'] = $result['final_status'];
+					if(!empty($ctrl_data)){
+					    if($result['final_status'] == "Annulé" && $cancelled_by['is_admin'] == "2"){
+                           $result['ctrl_status'] = '<span class="label label-danger">Annulé</span>'; 
+                        }
+                        else if($result['final_status'] == "Abandonner"){
+                           $result['ctrl_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                        }
+						else if($ctrl_data['approval_status'] == "Avis Favorable"){
+					    	$result['ctrl_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($ctrl_data['approval_status'] == "Process")
+					    {
+					    	$result['ctrl_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($ctrl_data['approval_status'] == "Avis défavorable")
+						{
+							$result['ctrl_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($ctrl_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['ctrl_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($ctrl_data['approval_status'] == "Annuler")
+    					{
+    						$result['ctrl_status'] = '<span class="label label-danger">Annulé</span>';
+    						
+    					}
+                        else if($ctrl_data['approval_status'] == "Abandonner")
+    					{
+    						$result['ctrl_status'] = '<span class="label label-danger">Abandonner</span>';
+    						
+    					}
+						else if($ctrl_data['approval_status'] == "Disbursement")
+						{
+							$result['ctrl_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['ctrl_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['ctrl_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$ctrl_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $ctrl_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($ctrl_commentdata['comment_date'])
+					$result['ctrl_commentdate'] = date("d-m-Y H:i:s",strtotime($ctrl_commentdata['comment_date'])) ;
+					else
+					$result['ctrl_commentdate'] = "" ;
+					
+					
+
+
+					// Operation Dir Details
+					$op_where = array('status' =>"1",'assigned_roles' => "12",'loan_id' => $app['loan_id'],'loan_type' =>$app['loan_type']);
+
+					$op_data =  $this->Common_model->getRecord('tbl_all_applications','',$op_where );
+					
+					$user_where= array('id' =>$op_data['user_id']);
+					$acc_data =  $this->Common_model->getRecord('tbl_user','',$user_where );
+                    $result['operation_dir_id'] = $acc_data['user_name'];
+                    $result['operation_dir_status_raw'] = $result['final_status'];
+                    if($result['final_status'] == "Annulé"){
+                       $result['operation_dir_status'] = '<span class="label label-danger">Annulé</span>'; 
+                    }
+                    else if($result['final_status'] == "Abandonner"){
+                       $result['operation_dir_status'] = '<span class="label label-danger">Abandonner</span>'; 
+                    }
+                    else if($op_data['approval_status'] == "Avis Favorable"){
+				    	$result['operation_dir_status'] =  '<span class="label label-info">Avis Favorable</span>';
+				    }
+				    else if($op_data['approval_status'] == "Process")
+				    {
+				    	$result['operation_dir_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+				    }
+				    else if($op_data['approval_status'] == "Avis défavorable")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+					}
+					else if($op_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+					}
+					else if($op_data['approval_status'] == "Annuler")
+					{
+						$result['operation_dir_status'] = '<span class="label label-danger">Annulé</span>';
+						
+					}
+                    else if($op_data['approval_status'] == "Abandonner")
+					{
+						$result['operation_dir_status'] = '<span class="label label-danger">Abandonner</span>';
+						
+					}
+					else if($op_data['approval_status'] == "Disbursement")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+					}
+					else {
+						$result['operation_dir_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$op_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $op_data['user_id'],'loan_type' => $app['loan_type'] ))->row_array();
+
+					if($op_commentdata['comment_date'])
+					$result['op_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($op_commentdata['comment_date'])) ;
+					else
+					$result['op_mgr_commentdate'] = "" ;
+
+					$user_app[] =  $result;
+				}
+
+				//Congés à la Carte
+			
+		}
+
+		$this->data['loan_details'] = $user_app;
+		$this->data['all_branch'] =  $this->Common_model->getAllRecords('tbl_branch');
+
+		$u_where  =  array('is_admin' => '2');
+		$this->data['all_account_managers'] =  $this->Common_model->getAllRecords('tbl_user',$u_where);
+
+// 		echo '<pre>';
+// 		print_r($this->data); die;
+		
+		$this->render_template2('reports/all_report', $this->data);
+	}
+
+
+	// New update : 10 feb 2021
+	public function tokos_report(){
+
+		$this->data['page'] = 'Tokos Report';
+		$role_id =  $this->session->userdata('role');
+		$this->data['record']=$this->Common_model->get_admin_details();
+		$user_id = $this->session->userdata('id');
+		$user_data =  $this->Common_model->get_user_details($user_id);
+		$is_admin = ($user_id == 1) ? true :false;
+		$this->data['is_admin'] = $is_admin;
+
+		// Filter post
+		$date= date('d-m-Y');
+		$date2= date('d-m-Y', strtotime('-1 day', strtotime($date)));
+		$start_date  =  ($this->input->post('start_date')) ? ($this->input->post('start_date')): ($date2);
+		$end_date = ($this->input->post('end_date')) ? ($this->input->post('end_date')): ($date);
+
+		// All applications
+
+		$this->db->order_by('app_id','desc');
+		$this->db->group_by('loan_id,loan_type');
+		$applications  =  $this->db->get_where('tbl_all_applications',array('status' => "1"))->result_array();
+
+		$user_app= array();
+
+		foreach($applications  as $app)
+		{
+			if($app['loan_type'] == "credit_conso")
+			{
+				$table_name=  'tbl_credit_conso_applicationloan  as g';
+			}
+			else if($app['loan_type'] == "credit_confort")
+			{
+				$table_name= 'tbl_credit_confort_applicationloan  as g';
+			}else{
+			    $table_name= 'tbl_credit_scolair_applicationloan  as g';
+			}
+		
+			$this->db->select('g.loan_id,g.user_id created_by,g.application_no,g.sub_product,g.customer_data,g.created_at,g.modified_at,b.branch_name,u.department,g.customer_type,g.final_status,g.final_disburse_date,g.disbursed_by,loan.loan_amt,loan.loan_interest,loan.loan_term,loan.loan_schedule,loan.loan_fee,loan.loan_tax,u.user_name,u.exploitent,at.*');
+			$this->db->from($table_name);
+			
+		    
+		    $this->db->join('consumer_amortization as at','at.applicationform_id = g.loan_id_temp','left');
+			$this->db->join('tbl_branch as b','b.bid = g.branch_id','inner');
+			$this->db->join('tbl_user as u','u.id = g.user_id','left');
+			$this->db->join('tbl_temp_consumer_applicationform as loan','loan.aid = g.loan_id_temp','left');
+
+			if($role_id=='2'){
+				$this->db->where('g.user_id',$user_id);
+				$this->db->where('g.branch_id',$user_data['branch_id']);
+				$this->db->where('g.loan_id',$app['loan_id']);
+			}
+			if($role_id == '3')
+			{
+			    $this->db->where('g.branch_id',$user_data['branch_id']);
+			    $this->db->where('g.loan_id',$app['loan_id']);
+			}
+			else
+			{
+				 $this->db->where('g.loan_id',$app['loan_id']);
+			}
+
+			$this->db->where('g.final_status',"Disbursement");
+
+			
+
+			if($start_date != "" && $end_date != "")
+			{
+				$s_date  = date('Y-m-d',strtotime($start_date))." 00:00:00"; 
+				$e_date  = date('Y-m-d',strtotime($end_date))." 23:59:59"; 
+				$between_where  =  "(g.final_disburse_date BETWEEN '".$s_date."' AND '".$e_date."')";
+				$this->db->where($between_where);
+			}
+
+			// if($branch != "")
+			// {
+			// 	$this->db->where('g.branch_id',$branch);
+			// }
+
+			// if($account_manager !="")
+			// {
+			// 	$this->db->where('g.user_id',$account_manager);
+			// }
+			
+			//$this->db->where('g.deleted','0');
+	
+			$result =  $this->db->get()->row_array();
+
+			
+			
+
+			if(!empty($result))
+			{
+				$result['loan_type']= $app['loan_type'];
+				$user_app[]= $result;
+			}
+				
+		}
+
+		$this->data['loan_details'] = $user_app;
+
+
+		$this->render_template2('reports/tokos_report', $this->data);
+	}
+
+
+
+
+
+
+	public function export_report()
+	{
+		
+
+		$role_id =  $this->session->userdata('role');
+		$user_id =  $this->session->userdata('id');
+		$user_data =  $this->Common_model->get_user_details($user_id);
+
+
+ 		 $fileName = 'Report-'.time().'.xlsx';  
+
+		 // load excel library
+      require_once APPPATH . "/third_party/PHPExcel.php";
+          $objPHPExcel = new PHPExcel();
+        $objPHPExcel->setActiveSheetIndex(0);
+        // set Header
+        $objPHPExcel->getActiveSheet()->SetCellValue('A1', 'Type De Prét');
+        $objPHPExcel->getActiveSheet()->SetCellValue('B1', 'Numéro Demande');
+        $objPHPExcel->getActiveSheet()->SetCellValue('C1', 'Numéro De Compte');
+        $objPHPExcel->getActiveSheet()->SetCellValue('D1', 'Client');
+        $objPHPExcel->getActiveSheet()->SetCellValue('E1', 'Date De Demande Prêt'); 
+        $objPHPExcel->getActiveSheet()->SetCellValue('F1', 'Montant Du Prêt');
+        $objPHPExcel->getActiveSheet()->SetCellValue('G1', 'Taux Interet');
+        $objPHPExcel->getActiveSheet()->SetCellValue('H1', 'Durée');
+        $objPHPExcel->getActiveSheet()->SetCellValue('I1', 'Expl.Placeur');
+        $objPHPExcel->getActiveSheet()->SetCellValue('J1', 'Date Validation Expl.Placeur '); 
+        $objPHPExcel->getActiveSheet()->SetCellValue('K1', 'Dir./Resp. Agence');
+        $objPHPExcel->getActiveSheet()->SetCellValue('L1', 'Date Validation Dir./Resp. Agence');
+        $objPHPExcel->getActiveSheet()->SetCellValue('M1', 'Directeur Engagement Statut');
+        $objPHPExcel->getActiveSheet()->SetCellValue('N1', 'Date Validation Directeur Engagement');
+        $objPHPExcel->getActiveSheet()->SetCellValue('O1', 'CSR Statut'); 
+        $objPHPExcel->getActiveSheet()->SetCellValue('P1', 'Date Validation CSR'); 
+
+        // set Row
+        // $rowCount = 2;
+        // // foreach ($mobiledata as $val) 
+        // // {
+        //     $objPHPExcel->getActiveSheet()->SetCellValue('A' . $rowCount, "778");
+        //     $objPHPExcel->getActiveSheet()->SetCellValue('B' . $rowCount, "f");
+        //     $objPHPExcel->getActiveSheet()->SetCellValue('C' . $rowCount, "x");
+        //     $objPHPExcel->getActiveSheet()->SetCellValue('D' . $rowCount, "d");
+        //     $objPHPExcel->getActiveSheet()->SetCellValue('E' . $rowCount, "dsf");
+        //     $rowCount++;
+        //}
+
+
+		$this->db->order_by('app_id','desc');
+		$this->db->group_by('loan_id,loan_type');
+		$applications  =  $this->db->get_where('tbl_all_applications',array('status' => "1"))->result_array();
+
+		$rowCount = 2;
+
+		foreach($applications  as $app)
+		{
+			if($app['loan_type'] == "credit_conso")
+			{
+				$this->db->select('g.loan_id,g.user_id created_by,g.application_no,g.sub_product,g.customer_data,g.created_at,g.modified_at,b.branch_name,g.customer_type,g.final_status,loan.loan_amt,loan.loan_interest,loan.loan_term,loan.loan_schedule,loan.loan_fee,loan.loan_tax,loan.teg_rate,loan.wear_rate,loan.created,loan.loan_guarantee,loan.annual_teg,loan.periodic_teg');
+				$this->db->from('tbl_credit_conso_applicationloan as g');
+			
+				$this->db->join('tbl_branch as b','b.bid = g.branch_id','inner');
+				$this->db->join('tbl_temp_consumer_applicationform as loan','loan.aid = g.loan_id_temp','left');
+
+				if($role_id=='2'){
+					$this->db->where('g.user_id',$user_id);
+					$this->db->where('g.branch_id',$user_data['branch_id']);
+					$this->db->where('g.loan_id',$app['loan_id']);
+				}
+				if($role_id == '3')
+				{
+				    $this->db->where('g.branch_id',$user_data['branch_id']);
+				    $this->db->where('g.loan_id',$app['loan_id']);
+				}
+
+				$this->db->where('g.deleted','0');
+    	
+				$result =  $this->db->get()->row_array();
+
+				if(!empty($result))
+				{
+
+					$cust_data =  json_decode($result['customer_data']);
+
+					date("d-m-Y", strtotime($ld['created_at'])).":";
+					if(timeAgo($time_ago) >= 48){
+						if($key['loan_status']=="Process" || $key['loan_status']=="Demande de retraitement	"){
+								echo "<span class='blink' style='color:red'>".timeAgo($time_ago)."</span>";
+						}else{
+
+							echo timeAgo($time_ago);
+						}
+					}else{
+						echo timeAgo($time_ago);
+					}
+					
+
+					$objPHPExcel->getActiveSheet()->SetCellValue('A' . $rowCount, "Fête à la Carte");
+		            $objPHPExcel->getActiveSheet()->SetCellValue('B' . $rowCount,  $result['application_no']);
+		            $objPHPExcel->getActiveSheet()->SetCellValue('C' . $rowCount, $cust_data->account_no);
+		            $objPHPExcel->getActiveSheet()->SetCellValue('D' . $rowCount, trim(ucwords(strtolower($cust_data->first_name." ".$cust_data->middle_name." ".$cust_data->last_name))));
+		            $objPHPExcel->getActiveSheet()->SetCellValue('E' . $rowCount, "dsf");
+		            $rowCount++;
+					$result['loan_type'] = "";
+
+
+					// Account Manager Details
+					$acc_where = array('status' =>"1",'assigned_roles' => "2",'loan_id' => $app['loan_id'],'loan_type' =>"credit_conso");
+					$acc_data =  $this->Common_model->getRecord('tbl_all_applications','',$acc_where );
+
+					if($acc_data['approval_status'] == "Avis Favorable"){
+				    	$result['acc_mgr_status'] = '<span class="label label-info">Avis Favorable</span>';
+				    }
+				    else if($acc_data['approval_status'] == "Process")
+				    {
+				    	$result['acc_mgr_status'] = '<span class="label label-primary">Traitement en Cours</span>';
+				    }
+				    else if($acc_data['approval_status'] == "Avis défavorable")
+					{
+						$result['acc_mgr_status'] = '<span class="label label-danger">Avis Défavorable</span>';
+					}
+					else if($acc_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['acc_mgr_status'] = '<span class="label label-danger">Demande de Retraitement</span>';
+					}
+					else {
+						$result['acc_mgr_status'] = '<span class="label label-primary">Initiation en Cours</span>';
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$acc_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $acc_data['user_id'],'loan_type' => "credit_conso" ))->row_array();
+
+					if($acc_commentdata['comment_date'])
+					$result['acc_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($acc_commentdata['comment_date'])) ;
+					else
+					$result['acc_mgr_commentdate'] = "" ;
+
+					// Branch Manager Details
+					$b_where = array('status' =>"1",'assigned_roles' => "3",'loan_id' => $app['loan_id'],'loan_type' =>"credit_conso");
+
+					$b_data =  $this->Common_model->getRecord('tbl_all_applications','',$b_where );
+					if($b_data['approval_status'] == "Avis Favorable"){
+				    	$result['branch_mgr_status'] = '<span class="label label-info">Avis Favorable</span>';
+				    }
+				    else if($b_data['approval_status'] == "Process")
+				    {
+				    	$result['branch_mgr_status'] = '<span class="label label-primary">Traitement en Cours</span>';
+				    }
+				    else if($b_data['approval_status'] == "Avis défavorable")
+					{
+						$result['branch_mgr_status'] = '<span class="label label-danger">Avis Défavorable</span>';
+					}
+					else if($b_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['branch_mgr_status'] = '<span class="label label-danger">Demande de Retraitement</span>';
+					}
+					else {
+						$result['branch_mgr_status'] = '<span class="label label-primary">Initiation en Cours</span>';
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$branch_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $b_data['user_id'],'loan_type' => "credit_conso" ))->row_array();
+
+					if($branch_commentdata['comment_date'])
+					$result['branch_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($branch_commentdata['comment_date'])) ;
+					else
+					$result['branch_mgr_commentdate'] = "" ;
+
+
+					// Director engagement details
+					$de_where = array('status' =>"1",'assigned_roles' => "10",'loan_id' => $app['loan_id'],'loan_type' =>"credit_conso");
+
+					$de_data =  $this->Common_model->getRecord('tbl_all_applications','',$de_where );
+
+					if(!empty($de_data)){
+						if($de_data['approval_status'] == "Avis Favorable"){
+					    	$result['dir_engagement_status'] =  '<span class="label label-info">Avis Favorable</span>';
+					    }
+					    else if($de_data['approval_status'] == "Process")
+					    {
+					    	$result['dir_engagement_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+					    }
+					    else if($de_data['approval_status'] == "Avis défavorable")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+						}
+						else if($de_data['approval_status'] == "Demande de retraitement")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+						}
+						else if($de_data['approval_status'] == "Disbursement")
+						{
+							$result['dir_engagement_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+						}
+						else {
+							$result['dir_engagement_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+						}
+					}
+					else{
+						$result['dir_engagement_status'] = "";
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$dire_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $de_data['user_id'],'loan_type' => "credit_conso" ))->row_array();
+
+					if($dire_commentdata['comment_date'])
+					$result['dir_engage_commentdate'] = date("d-m-Y H:i:s",strtotime($dire_commentdata['comment_date'])) ;
+					else
+					$result['dir_engage_commentdate'] = "" ;
+
+
+					// Operation Dir Details
+					$op_where = array('status' =>"1",'assigned_roles' => "12",'loan_id' => $app['loan_id'],'loan_type' =>"credit_conso");
+
+					$op_data =  $this->Common_model->getRecord('tbl_all_applications','',$op_where );
+					if($op_data['approval_status'] == "Avis Favorable"){
+				    	$result['operation_dir_status'] =  '<span class="label label-info">Avis Favorable</span>';
+				    }
+				    else if($op_data['approval_status'] == "Process")
+				    {
+				    	$result['operation_dir_status'] =  '<span class="label label-primary">Traitement en Cours</span>';
+				    }
+				    else if($op_data['approval_status'] == "Avis défavorable")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-danger">Avis Défavorable</span>';
+					}
+					else if($op_data['approval_status'] == "Demande de retraitement")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-danger">Demande de Retraitement</span>';
+					}
+					else if($op_data['approval_status'] == "Disbursement")
+					{
+						$result['operation_dir_status'] =  '<span class="label label-success">Mise a Disposition</span>';
+					}
+					else {
+						$result['operation_dir_status'] =  '<span class="label label-primary">Initiation en Cours</span>';
+					}
+
+					$this->db->order_by('comment_id','desc');
+					$op_commentdata = $this->db->get_where('tbl_decision_comment',array('loan_id' => $app['loan_id'],'user_id' => $op_data['user_id'],'loan_type' => "credit_conso" ))->row_array();
+
+					if($op_commentdata['comment_date'])
+					$result['op_mgr_commentdate'] = date("d-m-Y H:i:s",strtotime($op_commentdata['comment_date'])) ;
+					else
+					$result['op_mgr_commentdate'] = "" ;
+
+					$user_app[] =  $result;
+				}
+
+				//Congés à la Carte
+			}
+		}
+
+ 
+        $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
+        $objWriter->save($fileName);
+ // download file
+        header("Content-Type: application/vnd.ms-excel");
+         redirect(site_url().$fileName);  
+	}
+}

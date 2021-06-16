@@ -1,0 +1,3 @@
+[24-Aug-2020 20:39:32 Asia/Kolkata] PHP Fatal error:  Can't use method return value in write context in /home1/myprojec/public_html/development1/dcp_loan/application/controllers/Login.php on line 309
+[24-Aug-2020 20:42:12 Asia/Kolkata] PHP Fatal error:  Can't use method return value in write context in /home1/myprojec/public_html/development1/dcp_loan/application/controllers/Login.php on line 309
+[24-Aug-2020 20:42:14 Asia/Kolkata] PHP Fatal error:  Can't use method return value in write context in /home1/myprojec/public_html/development1/dcp_loan/application/controllers/Login.php on line 309

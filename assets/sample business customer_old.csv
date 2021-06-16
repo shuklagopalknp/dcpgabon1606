@@ -1,0 +1,4 @@
+Numero du compte,Raison Sociale,Forme juridique,Adresse ,Principal gerant,Capital,Numero d immatriculation RCCM,Secteur d Activite ,Date ouverture compte,Montant des engagements,Solde du Compte Courant,Solde ,Montant des impayes,Nombre des impayes,Officer ,Position,Age,Experience
+10001,ABC COMPANY,SA,ontorio,12000,,10003,ENRGIE,8/5/2020,CCT,1000,DAT,1000,3,"abc,pqr","op manager,manager",,1
+1002,ABC COMPANY1,SA,ontorio,50000,240000,10003,ENRGIE,8/5/2020,CCT,1000,DAT,1000,3,"x,y,z","BM,Analyst,manager","34,35,abc","3,4,2"
+10003,ABC COMPANY2,SA,ontorio,12000,20000,11220,ENRGIE,8/5/2020,CCT,1000,DAT,1000,3,"a,b,c",,17,

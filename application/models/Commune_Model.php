@@ -1,0 +1,405 @@
+<?php
+if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+
+class Commune_Model extends CI_Model
+{
+	public function __construct()
+	{
+		//$this->not_logged_in();
+		parent::__construct();
+		$this->load->database();
+		$this->load->model('Common_model');	
+		$this->load->model('Chef_Lieu_Department_Model');	
+		date_default_timezone_set('Asia/Kolkata');
+	}
+
+
+	
+
+	public function get_all_communes()
+	{
+		$this->db->select('c.commune_id,c.commune_name,c.department_id,c.region_id,r.region_name,d.department_name,c.commune_description,c.created_at');
+		$this->db->from('tbl_target_commune as c');
+		$this->db->join('tbl_target_commune_region as r','r.region_id = c.region_id','inner');
+		$this->db->join('tbl_target_commune_department as d','d.department_id = c.department_id','inner');
+		$this->db->order_by('c.commune_id','desc');
+		return $record =$this->db->get()->result_array();
+
+	
+	}
+
+	public function get_commune_details($commune_id)
+	{
+		$record =  $this->db->get_where('tbl_target_commune',array('commune_id'=>$commune_id))->row_array();
+
+		return json_encode($record);
+	}
+
+	public function check_commune($data,$id){
+
+		if($id  == "")
+		{
+			$qry  =  $this->db->get_where('tbl_target_commune',array('commune_name'=>$data['commune_name'],'region_id'=>$data['region_id'],'department_id' => $data['department_id']))->result_array();
+
+			return ($qry) ? "exists" : "not_exists";
+			
+		}
+		else
+		{
+			$qry  =  $this->db->get_where('tbl_target_commune',array('commune_name'=>$data['commune_name'],'region_id'=>$data['region_id'],'department_id' => $data['department_id'],'commune_id !=' => $id))->result_array();
+
+			//echo $this->db->last_query();
+
+			return ($qry) ? "exists" : "not_exists";
+		}
+	}
+
+	
+	public function save_loan_application($customer_id,$sub_product,$customer_type){
+
+		$user_id  =  $this->session->userdata('id');
+		$user_data =  $this->Common_model->get_user_details($user_id);
+
+		if($customer_type == "1"){
+
+			$customer_data = $this->Customer_Model->get_customerdata_info($customer_id);
+
+			$customer_name = $customer_data[0]['first_name'].' '.$customer_data[0]['middle_name'].' '.$customer_data[0]['last_name'];
+
+		    $check_commune =  $this->db->get_where('tbl_target_commune',array('commune_name' => $customer_name))->result_array();
+
+		    if(empty($check_commune)){
+		    	echo "not_found";
+		    	die;
+		    }
+
+
+		}
+		else if($customer_type == "2")
+		{
+			$customer_data = $this->Business_Customer_Model->get_business_customer_details($customer_id);
+			$officer_data  = $this->Business_Customer_Model->get_business_officer_details($customer_id);
+
+			$check_commune1 = $this->db->get_where('tbl_target_commune',array('commune_name' => $customer_data[0]['company_name']))->result_array();
+
+			if(empty($check_commune1)){
+				echo "not_found";
+		    	die;
+			}
+		}
+
+		$customer_jdata =  json_encode($customer_data[0]);
+		if(!empty($officer_data))
+		{
+			$officer_jdata =  json_encode($officer_data);
+		}
+		else
+		{
+			$officer_jdata =  NULL;
+		}
+
+		// get current active product details tabs
+
+		$product_tab =  $this->db->get_where('tbl_details_tabs_business_products',array('status' => '1','product_type' => 'commune'))->result_array();
+
+		foreach($product_tab as $p_row)
+		{
+			$tab_arr[] =  $p_row['bussiness_tab_id'];
+
+		}
+
+		if(empty($tab_arr))
+		{
+			echo "tab_error";
+
+			die;
+		}
+
+		// get current active product documents
+		$system_docs  =  $this->db->get_where('tbl_document_system',array('document_status' => '1','product_type' => 'commune','document_type' => "system_docs"))->result_array();
+
+		foreach($system_docs as $row1)
+		{
+			$sys_arr[] =  $row1['document_id'];
+		}
+
+
+		$checklist_docs  =  $this->db->get_where('tbl_document_system',array('document_status' => '1','product_type' => 'commune','document_type' => "checklist_docs"))->result_array();
+		foreach($checklist_docs as $row2)
+		{
+			$checklist_arr[] =  $row2['document_id'];
+			$chk_status[] =  '0';
+		}
+
+
+		$risk_analysis_docs  =  $this->db->get_where('tbl_document_system',array('document_status' => '1','product_type' => 'commune','document_type' => "risk_analysis_docs"))->result_array();
+
+		foreach($risk_analysis_docs as $row3)
+		{
+			$analysis_arr[] =  $row3['document_id'];
+			$analyse_status[] =  '0';
+		}
+
+
+		$insertdata =  array(
+							'user_id' => $user_id,
+							'customer_id' => $customer_id,
+							'sub_product' => $sub_product,
+							'customer_type' => $customer_type,
+							'branch_id' => $user_data['branch_id'],
+							'application_no' => round(microtime(true)*1000),
+							'customer_data' => $customer_jdata,
+							'officer_data' => $officer_jdata,
+							'product_tab_data' => implode(',',$tab_arr),
+							'created_at' => DATETIME
+
+		);
+
+		if($insert_id =  $this->Common_model->insertRow('tbl_commune_applicationloan_n',$insertdata))
+		{
+			// Insert in Business Document table
+			$doc_data  =  array(
+								'loan_id'=> $insert_id,
+								'system_docs' => implode(',',$sys_arr) ?? NULL,
+								'checklist_doc_status' => implode(',',$chk_status) ?? NULL,
+								'checklist_docs' => implode(',',$checklist_arr) ?? NULL,
+								'risk_analysis_docs' => implode(',',$analysis_arr) ?? NULL,
+								'risk_analysis_doc_status' => implode(',',$analyse_status) ?? NULL
+			);
+
+			$this->Common_model->insertRow('tbl_commune_documents_n',$doc_data);
+
+			// Insert in all application table
+
+			$app_data = array(
+
+								'loan_id' =>  $insert_id,
+								'user_id' => $user_id,
+								'loan_type' => 'commune',
+								'assigned_roles' => $this->session->userdata('role'),
+								'status' => 1,
+								'workflow_id' => 0,
+								'review' => ""
+			);
+
+			$this->Common_model->insertRow('tbl_all_applications',$app_data);
+
+
+			// Insert in Tracking Details of Loan
+
+			$track_data =  array(
+								'loan_id' => $insert_id,
+								'user_id' => $user_id,
+								'product_type' => "commune",
+								'comment' => "New loan application form created and application number is ".$insertdata['application_no']." under process",
+								'content_type' => "text"
+			);
+
+			$this->Common_model->insertRow('business_tracking_timeline',$track_data);
+			
+			echo $insert_id;
+		}
+		else
+		{
+			echo "error";
+		}
+
+	}
+
+	public function get_saved_documents($loan_id){
+		$result =  $this->db->get_where('tbl_commune_documents_n',array('loan_id' => $loan_id))->row_array();
+		
+		$result1 =  array();
+		$system_docs =  array();
+		if($result['system_docs'])
+		{
+			$sys_arr =  explode(',',$result['system_docs']);
+			$this->db->where_in('document_id',$sys_arr);
+			$this->db->order_by('document_order');
+			$result1['system_docs'] =  $this->db->get_where('tbl_document_system')->result_array();
+
+		}
+
+
+		$checklist_docs =  array();
+		if($result['checklist_docs'])
+		{
+			$chk_arr =  explode(',',$result['checklist_docs']);
+			$this->db->where_in('document_id',$chk_arr);
+			$this->db->order_by('document_order');
+			$result1['checklist_docs'] =  $this->db->get_where('tbl_document_system')->result_array();
+			$result1['checklist_status'] =  explode(',',$result['checklist_doc_status']);
+		}
+
+
+		$analysis_docs =  array();
+		if($result['risk_analysis_docs'])
+		{
+			$risk_arr =  explode(',',$result['risk_analysis_docs']);
+			$this->db->where_in('document_id',$risk_arr);
+			$this->db->order_by('document_order');
+			$result1['analysis_docs'] =  $this->db->get_where('tbl_document_system')->result_array();
+			$result1['risk_status'] =  explode(',',$result['risk_analysis_doc_status']);
+		}
+
+		return $result1;
+
+
+	}
+
+	public function get_loan_details_branchwise()
+	{
+		$user_data =  $this->Common_model->get_user_details($this->session->userdata('id'));
+        $role_id  =  $user_data['is_admin'];
+                
+               
+        $this->db->select('com.loan_id,com.application_no,com.sub_product,com.customer_data,com.created_at,com.final_status,com.modified_at,b.branch_name,com.customer_type,app.workflow_order,app.assigned_roles,app.review,app.approval_status');
+        $this->db->from('tbl_commune_applicationloan_n as com');
+        $this->db->join('tbl_branch as b','b.bid = com.branch_id','inner');
+        $this->db->join('tbl_all_applications as app','app.loan_id =  com.loan_id','inner');
+        if($role_id == '2' || $role_id == '3')
+        {
+                $this->db->where('com.branch_id',$user_data['branch_id']);
+        }
+
+        $this->db->where('com.deleted','0');
+        $this->db->where('app.assigned_roles',$role_id);
+        $this->db->where('app.status','1');
+        $this->db->where('app.loan_type',"commune");
+        $this->db->where('app.review !=',NULL);
+        $this->db->order_by('com.loan_id','desc');
+                
+		
+		
+		$result =  $this->db->get()->result_array();
+			
+               //echo $this->db->last_query();
+               // print_r($this->session->userdata('portal_permission')); die;
+		return $result ;
+	}
+
+	
+	public function get_single_loan_details($loan_id)
+	{
+        $role_id  =  $this->session->userdata('role');
+            
+            $this->db->select('tbl_commune_applicationloan_n.*,app.workflow_order,app.assigned_roles,app.review,app.approval_status');
+            $this->db->join('tbl_all_applications as app','app.loan_id =  tbl_commune_applicationloan_n.loan_id','inner');
+            $this->db->where('app.loan_type','commune');
+            $result = $this->db->get_where('tbl_commune_applicationloan_n',array('tbl_commune_applicationloan_n.loan_id' => $loan_id,'app.assigned_roles' => $role_id,'app.status'=> "1"))->row_array();
+        
+            //echo $this->db->last_query();die;
+		return $result;
+	}
+
+	public function get_approval_decision_details($loan_id,$type){
+
+		$this->db->select('tbl_all_applications.*,u.first_name,u.last_name,r.name');
+		$this->db->join('tbl_user as u','u.id = tbl_all_applications.user_id','inner');
+		$this->db->join('tbl_role as r','u.is_admin =  r.id','inner');
+		$this->db->order_by('workflow_order','desc');
+		return $result  =  $this->db->get_where('tbl_all_applications',array('loan_id' => $loan_id,'loan_type' => $type,'review' => 1))->result_array();
+	}
+
+
+	public function get_risk_analysis_details($loan_id){
+
+		$result =  $this->db->get_where('tbl_commune_riskcalculation_n',array('loan_id' =>$loan_id))->row_array();
+		return $result;
+
+	}
+
+	public function get_tracking_details($loan_id)
+	{
+		$this->db->select('track.timeline_id,track.loan_id,track.comment,track.content_type,track.created_at,user.first_name,user.last_name');
+		$this->db->from('tbl_business_tracking_timeline as track');
+		$this->db->join('tbl_commune_applicationloan_n as loan','loan.loan_id = track.loan_id','inner');
+		$this->db->join('tbl_user as user','user.id =  track.user_id','inner');
+		$this->db->where('track.loan_id',$loan_id);
+                $this->db->where('track.product_type','commune');
+		return $result  =  $this->db->get()->result_array();
+	}
+
+
+
+	public function get_submitted_documents($loan_id,$type){
+
+		// $type : system_docs,checklist_docs,risk_analysis_docs
+
+		return $document_data  =  $this->db->get_where('tbl_business_documents',array('loan_id' => $loan_id,'document_type' => $type ))->result_array();
+	}
+
+	public function get_interaction_history($loan_id){
+		$result['email']  =  $this->db->get_where('tbl_business_interaction_history',array('loan_id' => $loan_id,'type' => "commune",'mode' =>  "email"))->result_array();
+
+		$result['sms']  =  $this->db->get_where('tbl_business_interaction_history',array('loan_id' => $loan_id,'type' => "commune",'mode' =>  "sms"))->result_array();
+
+		$result['interview']  =  $this->db->get_where('tbl_business_interaction_history',array('loan_id' => $loan_id,'type' => "commune",'mode' =>  "interview_telephone"))->result_array();
+
+		return $result;
+	}
+	
+
+	public function withdraw_details($loan_id){
+
+		$result =  $this->db->get_where('tbl_commune_withdraw',array('loan_id' => $loan_id))->result_array();
+
+		foreach ($result as $key => $value) {
+			
+			$data[$key]['withdraw'] = $value;
+
+			$details  =  $this->db->get_where('tbl_commune_withdrawal_approval',array('loan_id' => $loan_id,'withdraw_id' =>$value['id'],'review' =>'1'))->result_array();
+
+			$record =  array();
+			if(!empty($details)){
+				foreach($details as $key1=>$row){
+
+					$role =  $this->db->get_where('tbl_role',array('id' => $row['assigned_roles']))->row_array();
+					$userdata =  $this->db->get_where('tbl_user',array('id' => $row['user_id']))->row_array();
+
+					$record[$key1]  =  array(
+									'name' => $role['name'],
+									'first_name' => $userdata['first_name'],
+									'last_name' => $userdata['last_name'],
+									'approval_status' => $row['approval_status'],
+									'comment' => $row['comment'],
+									'comment_date' => $row['comment_date']
+					);
+
+					
+				}
+			}
+
+			$data[$key]['approval_details'] = $record;
+		}
+
+		return $data;
+
+	}
+
+	public function get_workflow_details($loan_id)
+	{
+        $role_id  =  $this->session->userdata('role');
+        
+        $result =  $this->db->get_where('tbl_commune_withdrawal_approval',array('loan_id' => $loan_id,'status' => '1','assigned_roles'=>$role_id))->row_array();
+		return $result;
+	}
+
+	public function current_worflow_status($loan_id){
+
+		$this->db->order_by('id','desc');
+		$this->db->limit('1');
+		$result =  $this->db->get_where('tbl_commune_withdraw',array('loan_id' => $loan_id))->result_array();
+
+		return $result;
+	}
+
+	public function total_remaining_withdraw_amt($loan_id){
+
+		$result=  $this->db->query("SELECT SUM(withdraw_amount) as sum FROM `tbl_commune_withdraw` WHERE loan_id= $loan_id ")->row_array();
+
+		return $result;
+
+	}
+}
